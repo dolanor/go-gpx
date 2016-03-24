@@ -7,11 +7,13 @@ package gpx
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"math"
 	"os"
+	"reflect"
 	"time"
 
 	"golang.org/x/net/html/charset"
@@ -70,6 +72,24 @@ type Wpt struct {
 	Pdop         float64 `xml:"pdop,omitempty"`
 	AgeOfGpsData float64 `xml:"ageofgpsdata,omitempty"`
 	DGpsID       int     `xml:"dgpsid,omitempty"`
+}
+
+func (w Wpt) MarshalJSON() ([]byte, error) {
+	mapped := make(map[string]interface{})
+	val := reflect.ValueOf(&w).Elem()
+
+	for i := 0; i < val.NumField(); i++ {
+		valF := val.Field(i)
+		typeF := val.Type().Field(i)
+		if valF.Kind() == reflect.Float64 {
+			// Do it for round numbers except 0
+			if valF.Float()-float64(int64(valF.Float())) < 1e-10 && valF.Float() != 0.0 {
+				valF.SetFloat(valF.Float() + 1e-10)
+			}
+		}
+		mapped[typeF.Name] = valF.Interface()
+	}
+	return json.Marshal(mapped)
 }
 
 // Rte is a GPX Route
